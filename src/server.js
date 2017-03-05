@@ -4,20 +4,109 @@
 let express = require('express');
 let bodyParser = require('body-parser');
 let app = express();
+let cookie = require("cookie-parser");
+let passport = require("passport");
 let logger = require('morgan');
+
+let LocalStrategy = require('passport-local').Strategy;
+
+let session = require('express-session');
+let RDBStore = new (require('session-rethinkdb'))(session);
+let R = require("rethinkdbdash");
+let r = new R({servers: {host: 'localhost', db: 'immm', port: 28015}});
+
+r.db('immm').tableList().run().then(console.log);
+
+let userTable = r.db('immm').table('user');
 
 let config = require('./config.json');
 
-app.use(logger('combined'));
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({extended: true}));
+let rdbStore = new RDBStore(r, {
+  table: 'session',
+  sessionTimeout: 86400000,
+  flushInterval: 60000,
+  debug: false
+});
 
-app.listen(3045, function () {
+passport.use(new LocalStrategy(
+  function (username, password, done) {
+    console.log(username, password);
+    userTable.getAll(username, {index: "username"}).run().then((users) => {
+      if (users.length < 1) return done(null, false);
+      let user = users[0];
+      if (user.password == password) {
+        return done(null, false);
+      }
+      return done(null, user);
+    }).catch((error) => {
+      console.error(error);
+      done(error);
+    });
+  }
+));
+
+passport.deserializeUser(function (id, cb) {
+  userTable.get(id).run().then((user) => {
+    cb(null, user);
+  }).catch(error => {
+    cb(error);
+  });
+});
+
+app.use(passport.initialize());
+app.use(passport.session());
+app.use(bodyParser.urlencoded({extended: true}));
+app.use(bodyParser.json());
+app.use(logger('combined'));
+app.use(cookie());
+app.use(session({
+  key: 'sid',
+  secret: 'my5upeiueorSEC537(key)!',
+  resave: false,
+  httpOnly: true,
+  sameSite: true,
+  cookie: {secure: 'auto', maxAge: 8600000},
+  store: rdbStore
+}));
+
+app.listen(3045, () => {
   console.log(`Server listening at port ${3045}`);
 });
 
-app.post('/users/', (req, res) => {
+// Configure view engine to render EJS templates.
+app.set('views', __dirname + '/views');
+app.set('view engine', 'ejs');
 
+app.get('/',
+  function (req, res) {
+    res.render('home', {user: req.user});
+  });
+
+app.get('/login',
+  function (req, res) {
+    res.render('login');
+  });
+
+app.post('/login',
+  passport.authenticate('local', {failureRedirect: '/login'}),
+  function (req, res) {
+    res.redirect('/');
+  });
+
+app.get('/logout',
+  function (req, res) {
+    req.logout();
+    res.redirect('/');
+  });
+
+app.get('/profile',
+  require('connect-ensure-login').ensureLoggedIn(),
+  function (req, res) {
+    res.render('profile', {user: req.user});
+  });
+
+app.post('/users/', async (req, res) => {
+  console.log(req.json());
 });
 
 app.get('/users/', (req, res) => {

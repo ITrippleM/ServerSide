@@ -19,7 +19,7 @@ var storage = multer.diskStorage({
   }
 });
 var upload = multer({storage: storage}).single('resumes');
-
+var bool = false;
 let LocalStrategy = require('passport-local').Strategy;
 
 let session = require('express-session');
@@ -162,8 +162,28 @@ app.post('/resume', function (req, res) {
   });
 });
 
-app.post('/resume', (req, res) => {
+var  finalString = "";
+app.get('/resume', (req, res) => {
+  let resumeTable = r.db('immm').table('resume');
+  resumeTable.get(id).run().then((resume) => {
+    finalString = getString(resume);
+
+    bool = finalString.includes("");
+  });
 });
+
+
+function getString(obj){
+  var returnValue = ""
+  if(typeof obj === 'string'){
+    returnValue += obj;
+  } else if (typeof obj == 'object'){
+    returnValue += getString(obj);
+  } else {
+    returnValue += "";
+  }
+  return returnValue;
+}
 
 app.get('/login/register', (req, res) => {
   res.render('register');

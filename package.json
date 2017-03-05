@@ -10,6 +10,7 @@
   "author": "macdja38",
   "dependencies": {
     "body-parser": "^1.16.0",
+    "connect-busboy": "0.0.2",
     "connect-ensure-login": "^0.1.1",
     "cookie-parser": "^1.4.3",
     "express": "latest",

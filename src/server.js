@@ -12,16 +12,12 @@ let PDFParser = require("pdf2json");
 
 var storage = multer.diskStorage({
   destination: function (req, file, callback) {
-    callback(null, './uploads');
+    callback(null, path.join(__dirname, './test/'));
   },
   filename: function (req, file, callback) {
-    callback(null, file.fieldname + '-' + Date.now());
+    callback(null, file.fieldname + '-' + Date.now() + ".pdf");
   }
 });
-var nameInit = multer({storage: storage}).single('name');
-var jobSearch = multer({storage: storage}).single('jobtype');
-var upload = multer({storage: storage}).single('data');
-var sendReq = multer({storage: storage}).single('values');
 
 var bool = false;
 let LocalStrategy = require('passport-local').Strategy;
@@ -31,8 +27,12 @@ let RDBStore = new (require('session-rethinkdb'))(session);
 let R = require("rethinkdbdash");
 let r = new R({servers: {host: 'localhost', db: 'immm', port: 28015}});
 
+var path = require("path");
+var upload = multer({storage: storage});
+
 r.db('immm').tableList().run().then(console.log);
 
+let resumeTable = r.db('immm').table('resumes');
 let userTable = r.db('immm').table('user');
 
 let config = require('./config.json');
@@ -47,6 +47,7 @@ let rdbStore = new RDBStore(r, {
 passport.use(new LocalStrategy(
   function (username, password, done) {
     console.log(username, password);
+    userTable.getAll().then(console.log);
     userTable.getAll(username, {index: "username"}).run().then((users) => {
       console.log(users);
       if (users.length < 1) return done(null, false);
@@ -63,6 +64,7 @@ passport.use(new LocalStrategy(
 ));
 
 passport.deserializeUser(function (id, cb) {
+  console.log("deserialise ID", id);
   userTable.get(id).run().then((user) => {
     cb(null, user);
   }).catch(error => {
@@ -98,21 +100,42 @@ app.listen(3045, () => {
 app.set('views', __dirname + '/views');
 app.set('view engine', 'ejs');
 
-app.get('/',
-  function (req, res) {
-    res.render('home', {user: req.user});
-  });
+/*app.get('/',
+ function (req, res) {
+ res.render('home', {user: req.user});
+ });
+ */
 
-app.get('/login',
-  function (req, res) {
-    res.render('login');
-  });
+async function isAuthed(rawUser) {
+  let dbUsers = await userTable.getAll(rawUser.username, {index: "username"}).run();
+  if (dbUsers.length < 1) return false;
+  let user = dbUsers[0];
+  if (user.password == rawUser.password) {
+    return user;
+  }
+  return false;
+}
+
 
 app.post('/login',
   passport.authenticate('local', {failureRedirect: '/login'}),
   function (req, res) {
+    res.json(req.user);
     console.log(req.body);
-    res.redirect('/');
+    console.log(req.body);
+  });
+
+app.patch('/login',
+  (req, res) => {
+    console.log("Got patch", req.body);
+    let data = req.body;
+    isAuthed(data.user).then((user => {
+      userTable.get(user.id).update({password: data.password}).run().then(() => {
+        userTable.get(user.id).then((user) => {
+          res.json(user);
+        })
+      });
+    })).catch(console.error);
   });
 
 app.get('/logout',
@@ -124,7 +147,7 @@ app.get('/logout',
 app.get('/profile',
   require('connect-ensure-login').ensureLoggedIn(),
   function (req, res) {
-    res.render('profile', {user: req.user});
+    res.json({user: req.user});
   });
 
 app.post('/users', (req, res) => {
@@ -135,54 +158,56 @@ app.get('/users', (req, res) => {
 
 });
 
+app.get('/api/user', (req, res) => {
+  console.log("User request", req.user);
+  res.json(req.user);
+});
+
 app.patch('/users', (req, res) => {
 
 });
 
-app.post('/resume', function (req, res) {
-  upload(req, res, function (err, data) {
-    if (err) {
-      return res.end("Error uploading file.");
-    }
-    res.end("File is uploaded");
-    let pdfParser = new PDFParser();
+app.post('/resume', upload.single('file'), function (req, res) {
+  console.log(req.file);
+  console.log(req.body);
 
-    pdfParser.on("pdfParser_dataError", errData => console.error(errData.parserError));
-    pdfParser.on("pdfParser_dataReady", pdfData => {
-      r
-        .db('immm')
-        .table('resumes')
-        .insert(pdfData)
-        .run()
-        .then((record) => {
+  res.json({sucess: true});
+
+
+  let pdfParser = new PDFParser();
+
+  pdfParser.on("pdfParser_dataError", errData => console.error(errData.parserError));
+  pdfParser.on("pdfParser_dataReady", pdfData => {
+    console.log(pdfData);
+    r
+      .db('immm')
+      .table('resumes')
+      .insert(pdfData)
+      .run()
+      .then((record) => {
         console.log(record);
-          userTable.get(user.id).update({resumeId: record.id})
-        })
-        .catch(console.error);
-    });
-
-    pdfParser.loadPDF(`./uploads/${name}`);
-
+        userTable.get(req.body.user.id).update({resume: {id: record.id, name: req.file.filename, data: req.body.data}})
+      })
+      .catch(console.error);
   });
+
+  pdfParser.loadPDF(path.join(req.file.destination, req.file.filename));
 });
 
-app.post('/sendSearch', function(req, res) {
+app.post('/sendSearch', function (req, res) {
 
-  sendReq(req, res, function (err, values) {
-    if (err) {
-      return res.end("Error uploading file.");
-    }
-    var  finalString = "";      //  Final String
+    var finalString = "";      //  Final String
     var valuArr = new Array();    // Array of value, value of resume
     var ret = new Array();        // Array of resumes to return
 
     var temp = 0;
 
-    let resumeTable = r.db('immm').table('resume');
-    resumeTable.getAll().run().then((resumes) => {
+
+    resumeTable.run().then((resumes) => {
+      console.log(resumes);
       resumes.forEach((resume) => {
         finalString = getString(resume);
-        for(var i = 0; i < values.length; i++) {
+        for (var i = 0; i < values.length; i++) {
           temp += getScore(values[i], resume);
         }
 
@@ -190,15 +215,13 @@ app.post('/sendSearch', function(req, res) {
         temp = 0;
       })
 
-    });
-  });
-  return ret;
+    }).catch(console.error);
 });
 
-function sort (arr1, arr2, num, res){
-  for( var i = 0; i < 9; i++) {
-    if(arr1[i] != null){
-      if (arr1[i] < num){
+function sort(arr1, arr2, num, res) {
+  for (var i = 0; i < 9; i++) {
+    if (arr1[i] != null) {
+      if (arr1[i] < num) {
         var temp = num;
         num = arr1[i];
         arr[i] = temp;
@@ -214,11 +237,11 @@ function sort (arr1, arr2, num, res){
   }
 }
 
-function getString(obj){
+function getString(obj) {
   var returnValue = ""
-  if(typeof obj === 'string'){
+  if (typeof obj === 'string') {
     returnValue += obj;
-  } else if (typeof obj == 'object'){
+  } else if (typeof obj == 'object') {
     returnValue += getString(obj);
   } else {
     returnValue += "";
@@ -226,9 +249,9 @@ function getString(obj){
   return returnValue;
 }
 
-function getScore(value, resume){
+function getScore(value, resume) {
   var temp = 0;
-  if(resume.includes(value)){
+  if (resume.includes(value)) {
     temp++;
   }
 
@@ -244,3 +267,5 @@ app.post('/login/register', (req, res) => {
   userTable.insert(req.body).run();
   res.redirect('/');
 });
+
+app.use(express.static(path.join(__dirname, '../../ClientSide/dist/')));

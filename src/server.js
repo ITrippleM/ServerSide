@@ -172,7 +172,7 @@ app.post('sendSearch', function(req, res) {
       return res.end("Error uploading file.");
     }
     var temp = 0;
-
+//
     let resumeTable = r.db('immm').table('resume');
     resumeTable.getAll().run().then((resumes) => {
       resumes.forEach((resume) => {

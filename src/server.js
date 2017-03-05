@@ -111,7 +111,7 @@ async function isAuthed(rawUser) {
   if (dbUsers.length < 1) return false;
   let user = dbUsers[0];
   if (user.password == rawUser.password) {
-     return user;
+    return user;
   }
   return false;
 }
@@ -183,12 +183,19 @@ app.post('/resume', upload.single('file'), function (req, res) {
 
   res.json({sucess: true});
 
+  let user = JSON.parse(req.body.user);
+  let data = JSON.parse(req.body.data);
+
+  console.log(req.body);
 
   let pdfParser = new PDFParser();
 
   pdfParser.on("pdfParser_dataError", errData => console.error(errData.parserError));
   pdfParser.on("pdfParser_dataReady", pdfData => {
     console.log(pdfData);
+    pdfData.data = data;
+    pdfData.user = user;
+    pdfData.fileName = req.file.filename;
     r
       .db('immm')
       .table('resumes')
@@ -205,57 +212,47 @@ app.post('/resume', upload.single('file'), function (req, res) {
 });
 
 app.post('/sendSearch', function (req, res) {
+  console.log(req.body);
 
-      var finalString = "";      //  Final String
-      var valuArr = new Array();    // Array of value, value of resume
-      var ret = new Array();        // Array of resumes to return
+  var finalString = "";      //  Final String
+  var valuArr = [];    // Array of value, value of resume
+  var ret = [];        // Array of resumes to return
 
-      var temp = 0;
+  resumeArray = [];
+
+  resumeTable.run().then((resumes) => {
+    resumes.forEach((resume) => {
+      let temp = 0;
+      finalString = getString(resume).toLowerCase();
+      let keys = req.body.keys.map(k => k.toLowerCase());
+      console.log(finalString);
+      for (let i = 0; i < keys.length; i++) {
+        temp += getScore(keys[i], finalString);
+      }
 
 
-      resumeTable.run().then((resumes) => {
-        console.log(resumes);
-        resumes.forEach((resume) => {
-          finalString = getString(resume);
-          for (var i = 0; i < values.length; i++) {
-            temp += getScore(values[i], resume);
-          }
+      resumeArray.push({score: temp, maxScore: keys.length, resume: resume});
+    });
 
-          sort(valuArr, ret, temp, resume);
-          temp = 0;
-        })
+    resumeArray.sort((a, b) => a.score - b.score);
 
-      }).catch(console.error);
+    resumeArray = resumeArray.slice(0, 10);
 
+    res.json(resumeArray);
+    console.dir(resumeArray, {depth: 2})
+
+  }).catch(console.error);
 });
 
-function sort(arr1, arr2, num, res) {
-  for (var i = 0; i < 9; i++) {
-    if (arr1[i] != null) {
-      if (arr1[i] < num) {
-        var temp = num;
-        num = arr1[i];
-        arr[i] = temp;
-        temp = res;
-        res = arr2[i];
-        arr2[i] = temp;
-      }
-    } else {
-      arr1[i] = num;
-      num = 0;
-      arr2[i] = res;
-    }
-  }
-}
-
 function getString(obj) {
-  var returnValue = ""
-  if (typeof obj === 'string') {
-    returnValue += obj;
-  } else if (typeof obj == 'object') {
-    returnValue += getString(obj);
-  } else {
-    returnValue += "";
+  let returnValue = "";
+
+  for (let prop in obj) {
+    if (typeof obj[prop] === 'string') {
+      returnValue += obj[prop];
+    } else if (typeof obj[prop] == 'object') {
+      returnValue += getString(obj[prop]);
+    }
   }
   return returnValue;
 }
@@ -278,6 +275,5 @@ app.post('/login/register', (req, res) => {
   userTable.insert(req.body).run();
   res.redirect('/');
 });
-
 
 app.use(express.static(path.join(__dirname, '../../ClientSide/dist/')));

@@ -19,6 +19,8 @@ var storage = multer.diskStorage({
   }
 });
 var upload = multer({storage: storage}).single('resumes');
+var sendReq = multer({storage: storage}).single('data');
+
 var bool = false;
 let LocalStrategy = require('passport-local').Strategy;
 
@@ -162,19 +164,19 @@ app.post('/resume', function (req, res) {
   });
 });
 
-var  finalString = "";
-var valuArr = new Array();
-var ret = new Array();
-
-app.post('sendSearch', function(req, res) {
-  upload(req, res, function (err, values) {
+app.post('/sendSearch', function(req, res) {
+  sendReq(req, res, function (err, data) {
     if (err) {
       return res.end("Error uploading file.");
     }
+    var  finalString = "";      //  Final String
+    var valuArr = new Array();    // Array of value, value of resume
+    var ret = new Array();        // Array of resumes to return
+
     var temp = 0;
 
     let resumeTable = r.db('immm').table('resume');
-    resumeTable.getAll().run().then((resumes) => {
+    resumeTable.getAll().run().then((name, resumes, jobtype) => {
       resumes.forEach((resume) => {
         finalString = getString(resume);
         for(var i = 0; i < values.length; i++) {
@@ -182,6 +184,7 @@ app.post('sendSearch', function(req, res) {
         }
 
         sort(valuArr, ret, temp, resume);
+        temp = 0;
       })
 
     });

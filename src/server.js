@@ -18,8 +18,8 @@ var storage = multer.diskStorage({
     callback(null, file.fieldname + '-' + Date.now());
   }
 });
-var upload = multer({storage: storage}).single('resumes');
-var sendReq = multer({storage: storage}).single('data');
+var upload = multer({storage: storage}).single('name','jobtype','resumes');
+var sendReq = multer({storage: storage}).single('values');
 
 var bool = false;
 let LocalStrategy = require('passport-local').Strategy;
@@ -138,7 +138,7 @@ app.patch('/users', (req, res) => {
 });
 
 app.post('/resume', function (req, res) {
-  upload(req, res, function (err, name) {
+  upload(req, res, function (err, name, jobtypes, resumes) {
     if (err) {
       return res.end("Error uploading file.");
     }
@@ -165,7 +165,8 @@ app.post('/resume', function (req, res) {
 });
 
 app.post('/sendSearch', function(req, res) {
-  sendReq(req, res, function (err, data) {
+
+  sendReq(req, res, function (err, values) {
     if (err) {
       return res.end("Error uploading file.");
     }
@@ -176,7 +177,7 @@ app.post('/sendSearch', function(req, res) {
     var temp = 0;
 
     let resumeTable = r.db('immm').table('resume');
-    resumeTable.getAll().run().then((name, resumes, jobtype) => {
+    resumeTable.getAll().run().then((resumes) => {
       resumes.forEach((resume) => {
         finalString = getString(resume);
         for(var i = 0; i < values.length; i++) {

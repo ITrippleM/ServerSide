@@ -111,6 +111,16 @@ async function isAuthed(rawUser) {
   if (dbUsers.length < 1) return false;
   let user = dbUsers[0];
   if (user.password == rawUser.password) {
+     return user;
+  }
+  return false;
+}
+
+async function isAdmin(rawUser) {
+  let dbUsers = await userTable.getAll(rawUser.username, {index: "username"}).run();
+  if (dbUsers.length < 1) return false;
+  let user = dbUsers[0];
+  if (user.admin) {
     return user;
   }
   return false;
@@ -269,23 +279,5 @@ app.post('/login/register', (req, res) => {
   res.redirect('/');
 });
 
-passport.use(new LocalStrategy(
-  function (username, admin, done) {
-    console.log(username, admin);
-    userTable.getAll().then(console.log);
-    userTable.getAll(username, {index: "username"}).run().then((users) => {
-      console.log(users);
-      if (users.length < 1) return done(null, false);
-      let user = users[0];
-      if (user.admin == admin) {
-        return done(null, user);
-      }
-      return done(null, false);
-    }).catch((error) => {
-      console.error(error);
-      done(error);
-    });
-  }
-));
 
 app.use(express.static(path.join(__dirname, '../../ClientSide/dist/')));

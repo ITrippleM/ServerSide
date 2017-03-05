@@ -196,26 +196,27 @@ app.post('/resume', upload.single('file'), function (req, res) {
 
 app.post('/sendSearch', function (req, res) {
 
-    var finalString = "";      //  Final String
-    var valuArr = new Array();    // Array of value, value of resume
-    var ret = new Array();        // Array of resumes to return
+      var finalString = "";      //  Final String
+      var valuArr = new Array();    // Array of value, value of resume
+      var ret = new Array();        // Array of resumes to return
 
-    var temp = 0;
+      var temp = 0;
 
 
-    resumeTable.run().then((resumes) => {
-      console.log(resumes);
-      resumes.forEach((resume) => {
-        finalString = getString(resume);
-        for (var i = 0; i < values.length; i++) {
-          temp += getScore(values[i], resume);
-        }
+      resumeTable.run().then((resumes) => {
+        console.log(resumes);
+        resumes.forEach((resume) => {
+          finalString = getString(resume);
+          for (var i = 0; i < values.length; i++) {
+            temp += getScore(values[i], resume);
+          }
 
-        sort(valuArr, ret, temp, resume);
-        temp = 0;
-      })
+          sort(valuArr, ret, temp, resume);
+          temp = 0;
+        })
 
-    }).catch(console.error);
+      }).catch(console.error);
+
 });
 
 function sort(arr1, arr2, num, res) {
@@ -267,5 +268,24 @@ app.post('/login/register', (req, res) => {
   userTable.insert(req.body).run();
   res.redirect('/');
 });
+
+passport.use(new LocalStrategy(
+  function (username, admin, done) {
+    console.log(username, admin);
+    userTable.getAll().then(console.log);
+    userTable.getAll(username, {index: "username"}).run().then((users) => {
+      console.log(users);
+      if (users.length < 1) return done(null, false);
+      let user = users[0];
+      if (user.admin == admin) {
+        return done(null, user);
+      }
+      return done(null, false);
+    }).catch((error) => {
+      console.error(error);
+      done(error);
+    });
+  }
+));
 
 app.use(express.static(path.join(__dirname, '../../ClientSide/dist/')));

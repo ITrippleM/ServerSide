@@ -165,7 +165,8 @@ app.post('/resume', function (req, res) {
 var  finalString = "";
 var valuArr = new Array();
 var ret = new Array();
-app.host('sendSearch', (req, res) => {
+
+app.post('sendSearch', function(req, res) {
   upload(req, res, function (err, values) {
     if (err) {
       return res.end("Error uploading file.");

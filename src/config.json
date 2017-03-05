@@ -1,3 +1,8 @@
 {
-  "AiKey": "secretKeyHere"
+  "AiKey": "secretKeyHere",
+  "redb": {
+    "host": "localhost",
+    "db": "immm",
+    "port": 28015
+  }
 }

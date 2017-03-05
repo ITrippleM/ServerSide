@@ -9,6 +9,7 @@ let passport = require("passport");
 let logger = require('morgan');
 var multer = require('multer');
 let PDFParser = require("pdf2json");
+let config = require('./config.json');
 
 var storage = multer.diskStorage({
   destination: function (req, file, callback) {
@@ -25,7 +26,7 @@ let LocalStrategy = require('passport-local').Strategy;
 let session = require('express-session');
 let RDBStore = new (require('session-rethinkdb'))(session);
 let R = require("rethinkdbdash");
-let r = new R({servers: {host: 'localhost', db: 'immm', port: 28015}});
+let r = new R(config.redb);
 
 var path = require("path");
 var upload = multer({storage: storage});
@@ -34,8 +35,6 @@ r.db('immm').tableList().run().then(console.log);
 
 let resumeTable = r.db('immm').table('resumes');
 let userTable = r.db('immm').table('user');
-
-let config = require('./config.json');
 
 let rdbStore = new RDBStore(r, {
   table: 'session',
@@ -234,7 +233,7 @@ app.post('/sendSearch', function (req, res) {
       resumeArray.push({score: temp, maxScore: keys.length, resume: resume});
     });
 
-    resumeArray.sort((a, b) => a.score - b.score);
+    resumeArray.sort((a, b) => b.score - a.score);
 
     resumeArray = resumeArray.slice(0, 10);
 

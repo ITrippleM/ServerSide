@@ -163,15 +163,49 @@ app.post('/resume', function (req, res) {
 });
 
 var  finalString = "";
-app.get('/resume', (req, res) => {
-  let resumeTable = r.db('immm').table('resume');
-  resumeTable.get(id).run().then((resume) => {
-    finalString = getString(resume);
+var valuArr = new Array();
+var ret = new Array();
+app.host('sendSearch', (req, res) => {
+  upload(req, res, function (err, values) {
+    if (err) {
+      return res.end("Error uploading file.");
+    }
+    var temp = 0;
 
-    bool = finalString.includes("");
+    let resumeTable = r.db('immm').table('resume');
+    resumeTable.getAll().run().then((resumes) => {
+      resumes.forEach((resume) => {
+        finalString = getString(resume);
+        for(var i = 0; i < values.length; i++) {
+          temp += getScore(values[i], resume);
+        }
+
+        sort(valuArr, ret, temp, resume);
+      })
+
+    });
   });
+  return ret;
 });
 
+function sort (arr1, arr2, num, res){
+  for( var i = 0; i < 9; i++) {
+    if(arr1[i] != null){
+      if (arr1[i] < num){
+        var temp = num;
+        num = arr1[i];
+        arr[i] = temp;
+        temp = res;
+        res = arr2[i];
+        arr2[i] = temp;
+      }
+    } else {
+      arr1[i] = num;
+      num = 0;
+      arr2[i] = res;
+    }
+  }
+}
 
 function getString(obj){
   var returnValue = ""
@@ -183,6 +217,15 @@ function getString(obj){
     returnValue += "";
   }
   return returnValue;
+}
+
+function getScore(value, resume){
+  var temp = 0;
+  if(resume.includes(value)){
+    temp++;
+  }
+
+  return temp;
 }
 
 app.get('/login/register', (req, res) => {

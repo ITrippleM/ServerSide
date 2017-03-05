@@ -32,12 +32,13 @@ passport.use(new LocalStrategy(
   function (username, password, done) {
     console.log(username, password);
     userTable.getAll(username, {index: "username"}).run().then((users) => {
+      console.log(users);
       if (users.length < 1) return done(null, false);
       let user = users[0];
       if (user.password == password) {
-        return done(null, false);
+        return done(null, user);
       }
-      return done(null, user);
+      return done(null, false);
     }).catch((error) => {
       console.error(error);
       done(error);
@@ -51,6 +52,10 @@ passport.deserializeUser(function (id, cb) {
   }).catch(error => {
     cb(error);
   });
+});
+
+passport.serializeUser(function (user, done) {
+  done(null, user.id);
 });
 
 app.use(passport.initialize());
@@ -90,6 +95,7 @@ app.get('/login',
 app.post('/login',
   passport.authenticate('local', {failureRedirect: '/login'}),
   function (req, res) {
+    console.log(req.body);
     res.redirect('/');
   });
 
@@ -105,14 +111,24 @@ app.get('/profile',
     res.render('profile', {user: req.user});
   });
 
-app.post('/users/', async (req, res) => {
+app.post('/users', (req, res) => {
   console.log(req.json());
 });
 
-app.get('/users/', (req, res) => {
+app.get('/users', (req, res) => {
 
 });
 
-app.patch('/users/', (req, res) => {
+app.patch('/users', (req, res) => {
 
+});
+
+app.get('/login/register', (req, res) => {
+  res.render('register');
+});
+
+app.post('/login/register', (req, res) => {
+  console.log(req.body);
+  userTable.insert(req.body).run();
+  res.redirect('/');
 });

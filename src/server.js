@@ -7,6 +7,18 @@ let app = express();
 let cookie = require("cookie-parser");
 let passport = require("passport");
 let logger = require('morgan');
+var multer = require('multer');
+let PDFParser = require("pdf2json");
+
+var storage = multer.diskStorage({
+  destination: function (req, file, callback) {
+    callback(null, './uploads');
+  },
+  filename: function (req, file, callback) {
+    callback(null, file.fieldname + '-' + Date.now());
+  }
+});
+var upload = multer({storage: storage}).single('resumes');
 
 let LocalStrategy = require('passport-local').Strategy;
 
@@ -121,6 +133,36 @@ app.get('/users', (req, res) => {
 
 app.patch('/users', (req, res) => {
 
+});
+
+app.post('/resume', function (req, res) {
+  upload(req, res, function (err, name) {
+    if (err) {
+      return res.end("Error uploading file.");
+    }
+    res.end("File is uploaded");
+    let pdfParser = new PDFParser();
+
+    pdfParser.on("pdfParser_dataError", errData => console.error(errData.parserError));
+    pdfParser.on("pdfParser_dataReady", pdfData => {
+      r
+        .db('immm')
+        .table('resumes')
+        .insert(pdfData)
+        .run()
+        .then((record) => {
+        console.log(record);
+          userTable.get(user.id).update({resumeId: record.id})
+        })
+        .catch(console.error);
+    });
+
+    pdfParser.loadPDF(`./uploads/${name}`);
+
+  });
+});
+
+app.post('/resume', (req, res) => {
 });
 
 app.get('/login/register', (req, res) => {

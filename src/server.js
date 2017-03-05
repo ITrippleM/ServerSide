@@ -18,7 +18,9 @@ var storage = multer.diskStorage({
     callback(null, file.fieldname + '-' + Date.now());
   }
 });
-var upload = multer({storage: storage}).single('name','jobtype','resumes');
+var nameInit = multer({storage: storage}).single('name');
+var jobSearch = multer({storage: storage}).single('jobtype');
+var upload = multer({storage: storage}).single('resumes');
 var sendReq = multer({storage: storage}).single('values');
 
 var bool = false;
@@ -136,9 +138,28 @@ app.get('/users', (req, res) => {
 app.patch('/users', (req, res) => {
 
 });
+app.post('/sendName', function (req, res){
+  nameInit(req, res, function(err, name){
+    if (err) {
+      return res.end("Error uploading file.");
+    }
+    res.end("File is uploaded");
+
+  });
+});
+
+app.post('/sendJobType', function (req, res){
+  jobSearch(req, res, function(err, jobtypes){
+    if (err) {
+      return res.end("Error uploading file.");
+    }
+    res.end("File is uploaded");
+  });
+});
+
 
 app.post('/resume', function (req, res) {
-  upload(req, res, function (err, name, jobtypes, resumes) {
+  upload(req, res, function (err, resumes) {
     if (err) {
       return res.end("Error uploading file.");
     }

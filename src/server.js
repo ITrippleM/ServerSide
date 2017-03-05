@@ -271,6 +271,14 @@ app.get('/login/register', (req, res) => {
 
 app.post('/login/register', (req, res) => {
   console.log(req.body);
+  req.body.admin = false;
+  userTable.insert(req.body).run();
+  res.redirect('/');
+});
+
+app.post('/login/makeAdmin', (req, res) => {
+  console.log(req.body);
+  req.body.admin = true;
   userTable.insert(req.body).run();
   res.redirect('/');
 });
